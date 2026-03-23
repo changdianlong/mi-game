@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>米了个米</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#1a1a1a,#2d1b00,#1a0f00);min-height:100vh;display:flex;flex-direction:column;align-items:center;color:#fff;user-select:none;overflow-x:hidden}
+h1{margin:18px 0 4px;font-size:28px;text-shadow:0 2px 8px rgba(255,103,0,.4)}
+#info{font-size:14px;color:#999;margin-bottom:8px}
+#top-bar{display:flex;gap:24px;align-items:center;margin-bottom:8px;font-size:18px}
+#top-bar .label{color:#999;font-size:14px}
+#top-bar .val{color:#ff6700;font-weight:700}
+#board{position:relative;width:480px;height:580px;background:rgba(255,103,0,.04);border-radius:18px;border:1px solid rgba(255,103,0,.15)}
+.tile{position:absolute;width:78px;height:78px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;border:2px solid rgba(255,255,255,.1);box-shadow:0 2px 10px rgba(0,0,0,.4);overflow:hidden;background:#111}
+.tile img{width:74px;height:74px;object-fit:cover;pointer-events:none;border-radius:10px}
+.tile:hover{transform:scale(1.12);z-index:999!important}
+.tile.blocked{filter:brightness(.4);cursor:not-allowed}
+.tile.blocked::after{content:'';position:absolute;inset:0;border-radius:8px;background:rgba(0,0,0,.4)}
+#slot-bar{display:flex;gap:6px;margin:14px 0;padding:8px 14px;background:rgba(255,103,0,.06);border-radius:14px;border:1px solid rgba(255,103,0,.2);min-height:72px;min-width:480px;justify-content:center;align-items:center}
+.slot-tile{width:60px;height:60px;border-radius:10px;display:flex;align-items:center;justify-content:center;transition:all .2s;border:2px solid rgba(255,255,255,.1);overflow:hidden;background:#111}
+.slot-tile img{width:56px;height:56px;object-fit:cover;border-radius:8px}
+.slot-tile.pop{animation:popAnim .35s ease}
+@keyframes popAnim{0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(0);opacity:0}}
+#controls{display:flex;gap:10px;margin:8px 0}
+#controls button{padding:10px 24px;border-radius:10px;border:none;font-size:16px;cursor:pointer;font-weight:600;background:linear-gradient(135deg,#ff6700,#e55d00);color:#fff;transition:all .2s}
+#controls button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(255,103,0,.4)}
+#controls button:disabled{opacity:.35;cursor:not-allowed;transform:none}
+/* 弹窗 */
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;align-items:center;justify-content:center;flex-direction:column}
+#overlay.show{display:flex}
+#overlay h2{font-size:30px;margin-bottom:10px}
+#overlay p{font-size:15px;color:#ccc;margin-bottom:18px;white-space:pre-line;text-align:center}
+#overlay button{padding:10px 32px;border-radius:10px;border:none;font-size:15px;cursor:pointer;font-weight:600;background:linear-gradient(135deg,#ff6700,#e55d00);color:#fff;margin:4px}
+/* 开始界面 */
+#start-screen{display:flex;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:2000;align-items:center;justify-content:center;flex-direction:column}
+#start-screen.hide{display:none}
+#start-screen h2{font-size:36px;margin-bottom:24px;text-shadow:0 2px 12px rgba(255,103,0,.5)}
+#start-screen input{width:260px;padding:14px 18px;border-radius:12px;border:2px solid rgba(255,103,0,.4);background:rgba(255,255,255,.08);color:#fff;font-size:18px;text-align:center;outline:none;margin-bottom:18px}
+#start-screen input::placeholder{color:#666}
+#start-screen input:focus{border-color:#ff6700;box-shadow:0 0 12px rgba(255,103,0,.3)}
+#start-screen .start-btn{padding:14px 48px;border-radius:12px;border:none;font-size:20px;cursor:pointer;font-weight:700;background:linear-gradient(135deg,#ff6700,#e55d00);color:#fff;transition:all .2s}
+#start-screen .start-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,103,0,.5)}
+#start-screen .start-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+#start-screen .rank-btn{margin-top:14px;padding:10px 32px;border-radius:10px;border:2px solid rgba(255,103,0,.4);background:transparent;color:#ff6700;font-size:16px;cursor:pointer;font-weight:600;transition:all .2s}
+#start-screen .rank-btn:hover{background:rgba(255,103,0,.1)}
+/* 排行榜 */
+#rank-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:3000;align-items:center;justify-content:center;flex-direction:column}
+#rank-panel.show{display:flex}
+#rank-panel h2{font-size:28px;margin-bottom:18px;color:#ff6700}
+#rank-table{border-collapse:collapse;min-width:360px;max-width:500px}
+#rank-table th{padding:10px 18px;background:rgba(255,103,0,.15);color:#ff6700;font-size:14px;text-align:left}
+#rank-table td{padding:10px 18px;border-bottom:1px solid rgba(255,255,255,.06);font-size:15px}
+#rank-table tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+#rank-table .medal{font-size:20px}
+.rank-empty{color:#666;font-size:15px;margin-bottom:18px}
+#rank-panel button{margin-top:18px;padding:10px 32px;border-radius:10px;border:none;font-size:15px;cursor:pointer;font-weight:600;background:linear-gradient(135deg,#ff6700,#e55d00);color:#fff}
+</style>
+</head>
+<body>
+<h1>📱 米了个米</h1>
+<div id="info">点击产品放入槽位，3个相同即消除 · 唯一解法挑战</div>
+<div id="top-bar">
+  <div><span class="label">玩家 </span><span class="val" id="player-name-display">-</span></div>
+  <div><span class="label">用时 </span><span class="val" id="timer">00:00</span></div>
+  <div><span class="label">得分 </span><span class="val" id="score">0</span></div>
+</div>
+<div id="board"></div>
+<div id="slot-bar"></div>
+<div id="controls">
+  <button id="btn-undo">↩ 撤回</button>
+  <button id="btn-shuffle">🔀 洗牌</button>
+  <button id="btn-restart">🔄 重来</button>
+  <button id="btn-rank">🏆 排行榜</button>
+</div>
+
+<!-- 游戏结束弹窗 -->
+<div id="overlay">
+  <h2 id="overlay-title"></h2>
+  <p id="overlay-msg"></p>
+  <button onclick="showStartScreen()">再来一局</button>
+  <button onclick="showRankPanel()">🏆 排行榜</button>
+</div>
+
+<!-- 开始界面 -->
+<div id="start-screen">
+  <h2>📱 米了个米</h2>
+  <input id="name-input" type="text" placeholder="请输入你的姓名" maxlength="12" autocomplete="off">
+  <button class="start-btn" id="start-btn" disabled onclick="onStartGame()">开始挑战</button>
+  <button class="rank-btn" onclick="showRankPanel()">🏆 查看排行榜</button>
+</div>
+
+<!-- 排行榜面板 -->
+<div id="rank-panel">
+  <h2>🏆 通关排行榜</h2>
+  <div id="rank-content"></div>
+  <button onclick="closeRankPanel()">返回</button>
+</div>
+
+<script>
+// ========== 产品图片 ==========
+const PRODUCTS = [
+  'https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-17/pc/black.jpg',
+  'https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-17/pc/green.jpg',
+  'https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-17-ultra/pc/new_black_img.jpg',
+  'https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-17-ultra/pc/new_white_img.jpg',
+  'https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-14/PC/black_phone_img.png',
+  'https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-14/PC/green_phone_img.png',
+  'https://i02.appmifile.com/mi-com-product/fly-birds/xiaomi-14/PC/white_phone_img.png',
+  'https://i02.appmifile.com/mi-com-product/fly-birds/redmi-note-14-pro-plus-5g/pc/Black-global.jpg',
+];
+
+// ========== 常量 ==========
+const COLS=5, ROWS=6, LAYERS=3, TILE_W=78, TILE_H=78, GAP=4, MAX_SLOT=7;
+const RANK_KEY = 'xiaomi_game_rank';
+
+// ========== 状态 ==========
+let tiles=[], slotTiles=[], undoStack=[], gameOver=false;
+let shuffleCount=1, undoCount=2, score=0;
+let playerName='', timerInterval=null, startTime=0, elapsedSec=0;
+let solutionOrder=[]; // 唯一解法的消除顺序
+
+// ========== DOM ==========
+const board=document.getElementById('board'), slotBar=document.getElementById('slot-bar');
+const btnUndo=document.getElementById('btn-undo'), btnShuffle=document.getElementById('btn-shuffle');
+const btnRestart=document.getElementById('btn-restart'), overlay=document.getElementById('overlay');
+const scoreEl=document.getElementById('score'), timerEl=document.getElementById('timer');
+const startScreen=document.getElementById('start-screen'), nameInput=document.getElementById('name-input');
+const startBtn=document.getElementById('start-btn'), rankPanel=document.getElementById('rank-panel');
+
+// ========== 开始界面 ==========
+nameInput.addEventListener('input', () => {
+  startBtn.disabled = !nameInput.value.trim();
+});
+nameInput.addEventListener('keydown', e => {
+  if(e.key==='Enter' && nameInput.value.trim()) onStartGame();
+});
+
+function showStartScreen(){
+  overlay.classList.remove('show');
+  startScreen.classList.remove('hide');
+  stopTimer();
+  nameInput.value = playerName;
+  startBtn.disabled = !playerName;
+  nameInput.focus();
+}
+
+function onStartGame(){
+  playerName = nameInput.value.trim();
+  if(!playerName) return;
+  document.getElementById('player-name-display').textContent = playerName;
+  startScreen.classList.add('hide');
+  startGame();
+}
+
+// ========== 排行榜 ==========
+function getRank(){
+  try{ return JSON.parse(localStorage.getItem(RANK_KEY)) || []; }
+  catch{ return []; }
+}
+function saveRank(list){
+  localStorage.setItem(RANK_KEY, JSON.stringify(list));
+}
+function addRankEntry(name, seconds){
+  const list = getRank();
+  list.push({ name, seconds, date: new Date().toLocaleDateString('zh-CN') });
+  list.sort((a,b) => a.seconds - b.seconds);
+  if(list.length > 20) list.length = 20;
+  saveRank(list);
+}
+function fmtTime(s){
+  const m = Math.floor(s/60), sec = s%60;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+function showRankPanel(){
+  overlay.classList.remove('show');
+  const list = getRank();
+  const content = document.getElementById('rank-content');
+  if(!list.length){
+    content.innerHTML = '<p class="rank-empty">暂无通关记录，快来挑战吧</p>';
+  } else {
+    const medals = ['🥇','🥈','🥉'];
+    let html = '<table id="rank-table"><tr><th>#</th><th>玩家</th><th>用时</th><th>日期</th></tr>';
+    list.forEach((e,i) => {
+      const rank = i < 3 ? `<span class="medal">${medals[i]}</span>` : (i+1);
+      html += `<tr><td>${rank}</td><td>${esc(e.name)}</td><td>${fmtTime(e.seconds)}</td><td>${e.date||'-'}</td></tr>`;
+    });
+    html += '</table>';
+    content.innerHTML = html;
+  }
+  rankPanel.classList.add('show');
+}
+function closeRankPanel(){
+  rankPanel.classList.remove('show');
+}
+function esc(s){ const d=document.createElement('div');d.textContent=s;return d.innerHTML; }
+
+document.getElementById('btn-rank').onclick = showRankPanel;
+
+// ========== 计时器 ==========
+function startTimer(){
+  stopTimer();
+  startTime = Date.now(); elapsedSec = 0;
+  timerEl.textContent = '00:00';
+  timerInterval = setInterval(() => {
+    elapsedSec = Math.floor((Date.now()-startTime)/1000);
+    timerEl.textContent = fmtTime(elapsedSec);
+  }, 500);
+}
+function stopTimer(){ if(timerInterval){clearInterval(timerInterval);timerInterval=null;} }
+
+// ========== 关卡生成（唯一解法） ==========
+// 思路：先确定一个合法的消除序列（解法），然后反向放置方块到棋盘上
+// 这样保证存在且仅有这一种消除顺序能通关
+
+function generatePuzzle(){
+  tiles = [];
+  solutionOrder = [];
+
+  // 1. 生成消除序列：每3个一组，共若干组
+  const n = PRODUCTS.length;
+  const groupCount = Math.floor((COLS * ROWS * LAYERS) / 3);
+  // 限制总数为3的倍数
+  const totalTiles = groupCount * 3;
+
+  // 为每组分配图标
+  let groups = [];
+  for(let g=0; g<groupCount; g++){
+    const icon = g % n;
+    groups.push([icon, icon, icon]);
+  }
+
+  // 2. 展平为消除顺序（每3个连续的是一组）
+  let flatOrder = groups.flat();
+
+  // 3. 生成棋盘位置 - 从上层到下层分配
+  // 解法顺序：先消除的方块应该在上层（不被遮挡）
+  // 反向放置：最后消除的放在最底层
+  let positions = [];
+  for(let layer=LAYERS-1; layer>=0; layer--){
+    const ox=28+layer*14, oy=12+layer*10, rc=ROWS-layer;
+    for(let r=0; r<rc; r++){
+      for(let c=0; c<COLS; c++){
+        positions.push({
+          layer,
+          x: ox + c*(TILE_W+GAP) + (Math.random()*16|0) - 8,
+          y: oy + r*(TILE_H+GAP) + (Math.random()*16|0) - 8,
+        });
+      }
+    }
+  }
+
+  // 按层排序：高层在前（先被消除的）
+  positions.sort((a,b) => b.layer - a.layer || a.y - b.y || a.x - b.x);
+
+  // 截取需要的数量
+  if(positions.length > totalTiles) positions.length = totalTiles;
+  if(flatOrder.length > positions.length) flatOrder.length = positions.length - (positions.length % 3);
+
+  // 4. 分配：消除顺序的前面 = 高层位置
+  // 但为了增加难度，同一组的3个方块分散在不同位置
+  // 重新组织：按组打散位置
+  let posIdx = 0;
+  let allTiles = [];
+
+  for(let g=0; g<groups.length && posIdx+2 < positions.length; g++){
+    const icon = groups[g][0];
+    // 这一组的3个方块，尽量分散
+    for(let k=0; k<3; k++){
+      if(posIdx >= positions.length) break;
+      const p = positions[posIdx++];
+      allTiles.push({
+        id: allTiles.length,
+        icon,
+        layer: p.layer,
+        x: p.x,
+        y: p.y,
+        removed: false,
+        solOrder: g*3+k, // 解法中的消除顺序
+      });
+    }
+  }
+
+  // 5. 打乱同层内的位置（增加迷惑性，但不改变层级关系）
+  // 按层分组，层内随机交换icon
+  for(let layer=0; layer<LAYERS; layer++){
+    const layerTiles = allTiles.filter(t => t.layer === layer);
+    // 层内随机交换位置（保持icon和solOrder绑定）
+    for(let i=layerTiles.length-1; i>0; i--){
+      const j = Math.random()*i|0;
+      // 交换x,y坐标
+      [layerTiles[i].x, layerTiles[j].x] = [layerTiles[j].x, layerTiles[i].x];
+      [layerTiles[i].y, layerTiles[j].y] = [layerTiles[j].y, layerTiles[i].y];
+    }
+  }
+
+  tiles = allTiles;
+}
+
+// ========== 游戏核心 ==========
+function startGame(){
+  overlay.classList.remove('show');
+  tiles=[];slotTiles=[];undoStack=[];gameOver=false;
+  shuffleCount=1;undoCount=2;score=0;
+  board.innerHTML='';slotBar.innerHTML='';
+  scoreEl.textContent='0';
+  updateButtons();
+  generatePuzzle();
+  renderBoard();
+  startTimer();
+}
+
+function isBlocked(t){
+  if(t.removed) return true;
+  const m=8;
+  for(const o of tiles){
+    if(o.removed||o.layer<=t.layer||o.id===t.id) continue;
+    if(!(t.x+TILE_W-m<=o.x||o.x+TILE_W-m<=t.x||t.y+TILE_H-m<=o.y||o.y+TILE_H-m<=t.y)) return true;
+  }
+  return false;
+}
+
+function renderBoard(){
+  board.innerHTML='';
+  [...tiles].filter(t=>!t.removed).sort((a,b)=>a.layer-b.layer).forEach(t=>{
+    const blocked=isBlocked(t), el=document.createElement('div');
+    el.className='tile'+(blocked?' blocked':'');
+    el.style.cssText=`left:${t.x}px;top:${t.y}px;z-index:${t.layer*100+t.id}`;
+    const img=document.createElement('img');
+    img.src=PRODUCTS[t.icon]; img.loading='lazy';
+    el.appendChild(img);
+    if(!blocked) el.onclick=()=>pickTile(t.id);
+    board.appendChild(el);
+  });
+}
+
+function pickTile(id){
+  if(gameOver) return;
+  const t=tiles.find(x=>x.id===id);
+  if(!t||t.removed||isBlocked(t)) return;
+  t.removed=true; undoStack.push(id);
+  // 插入到槽位中相同icon旁边
+  let idx=slotTiles.length;
+  for(let i=0;i<slotTiles.length;i++){
+    if(slotTiles[i].icon===t.icon){
+      idx=i+1;
+      while(idx<slotTiles.length&&slotTiles[idx].icon===t.icon) idx++;
+      break;
+    }
+  }
+  slotTiles.splice(idx,0,{icon:t.icon,tileId:t.id});
+  renderSlot(); renderBoard();
+  setTimeout(checkMatch,100);
+}
+
+function renderSlot(){
+  slotBar.innerHTML='';
+  slotTiles.forEach(s=>{
+    const el=document.createElement('div'); el.className='slot-tile';
+    const img=document.createElement('img'); img.src=PRODUCTS[s.icon];
+    el.appendChild(img); slotBar.appendChild(el);
+  });
+}
+
+function checkMatch(){
+  for(let i=0;i<=slotTiles.length-3;i++){
+    if(slotTiles[i].icon===slotTiles[i+1].icon&&slotTiles[i+1].icon===slotTiles[i+2].icon){
+      const els=slotBar.children;
+      els[i].classList.add('pop');els[i+1].classList.add('pop');els[i+2].classList.add('pop');
+      setTimeout(()=>{
+        slotTiles.splice(i,3); undoStack=[];
+        score+=30; scoreEl.textContent=score;
+        renderSlot(); checkWin();
+        setTimeout(checkMatch,100);
+      },300);
+      return;
+    }
+  }
+  if(slotTiles.length>=MAX_SLOT){
+    gameOver=true; stopTimer();
+    showOverlay('😵 库存爆仓',`用时: ${fmtTime(elapsedSec)}\n得分: ${score} 分\n小米仓库满了！`);
+  }
+}
+
+function checkWin(){
+  if(!tiles.filter(t=>!t.removed).length && !slotTiles.length){
+    gameOver=true; stopTimer();
+    addRankEntry(playerName, elapsedSec);
+    showOverlay('🎉 全部清仓',`用时: ${fmtTime(elapsedSec)}\n得分: ${score} 分\n你是小米最佳仓库管理员！`);
+  }
+}
+
+function showOverlay(title,msg){
+  document.getElementById('overlay-title').textContent=title;
+  document.getElementById('overlay-msg').textContent=msg;
+  overlay.classList.add('show');
+}
+
+// ========== 按钮 ==========
+btnUndo.onclick=()=>{
+  if(undoCount<=0||!undoStack.length||gameOver) return;
+  undoCount--;
+  const lid=undoStack.pop(), t=tiles.find(x=>x.id===lid);
+  if(t){t.removed=false; const i=slotTiles.findIndex(s=>s.tileId===lid); if(i>=0)slotTiles.splice(i,1);}
+  renderSlot(); renderBoard(); updateButtons();
+};
+btnShuffle.onclick=()=>{
+  if(shuffleCount<=0||gameOver) return;
+  shuffleCount--;
+  const rem=tiles.filter(t=>!t.removed), icons=rem.map(t=>t.icon);
+  for(let i=icons.length-1;i>0;i--){const j=Math.random()*i|0;[icons[i],icons[j]]=[icons[j],icons[i]];}
+  rem.forEach((t,i)=>t.icon=icons[i]);
+  renderBoard(); updateButtons();
+};
+btnRestart.onclick=()=>{
+  // 重来：重置棋盘但不重置计时
+  overlay.classList.remove('show');
+  tiles=[];slotTiles=[];undoStack=[];gameOver=false;
+  shuffleCount=1;undoCount=2;score=0;
+  board.innerHTML='';slotBar.innerHTML='';
+  scoreEl.textContent='0';
+  updateButtons();
+  generatePuzzle();
+  renderBoard();
+  // 计时继续，不重置
+};
+
+function updateButtons(){
+  btnUndo.textContent=`↩ 撤回(${undoCount})`;
+  btnShuffle.textContent=`🔀 洗牌(${shuffleCount})`;
+  btnUndo.disabled=undoCount<=0;
+  btnShuffle.disabled=shuffleCount<=0;
+}
+
+// ========== 初始化 ==========
+// 页面加载时显示开始界面
+nameInput.focus();
+</script>
+</body>
+</html>
