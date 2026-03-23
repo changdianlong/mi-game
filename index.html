@@ -113,7 +113,6 @@ const PRODUCTS = [
 
 // ========== 常量 ==========
 const COLS=5, ROWS=6, LAYERS=3, TILE_W=78, TILE_H=78, GAP=4, MAX_SLOT=7;
-const RANK_KEY = 'xiaomi_game_rank';
 
 // ========== 状态 ==========
 let tiles=[], slotTiles=[], undoStack=[], gameOver=false;
@@ -154,29 +153,46 @@ function onStartGame(){
   startGame();
 }
 
-// ========== 排行榜 ==========
-function getRank(){
-  try{ return JSON.parse(localStorage.getItem(RANK_KEY)) || []; }
-  catch{ return []; }
+// ========== 云端排行榜 (jsonblob.com) ==========
+const BLOB_ID = '019d1a9b-4072-716c-9057-160e1edb4a3e';
+const BLOB_URL = `https://jsonblob.com/api/jsonBlob/${BLOB_ID}`;
+
+let rankCache = []; // 本地缓存
+
+async function fetchRank(){
+  try{
+    const r = await fetch(BLOB_URL);
+    if(r.ok){ rankCache = await r.json(); return rankCache; }
+  }catch(e){ console.warn('排行榜加载失败',e); }
+  return rankCache;
 }
-function saveRank(list){
-  localStorage.setItem(RANK_KEY, JSON.stringify(list));
+async function saveRankToCloud(list){
+  try{
+    await fetch(BLOB_URL, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(list)
+    });
+  }catch(e){ console.warn('排行榜保存失败',e); }
 }
-function addRankEntry(name, seconds){
-  const list = getRank();
+async function addRankEntry(name, seconds){
+  const list = await fetchRank();
   list.push({ name, seconds, date: new Date().toLocaleDateString('zh-CN') });
   list.sort((a,b) => a.seconds - b.seconds);
-  if(list.length > 20) list.length = 20;
-  saveRank(list);
+  if(list.length > 50) list.length = 50;
+  rankCache = list;
+  await saveRankToCloud(list);
 }
 function fmtTime(s){
   const m = Math.floor(s/60), sec = s%60;
   return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 }
-function showRankPanel(){
+async function showRankPanel(){
   overlay.classList.remove('show');
-  const list = getRank();
   const content = document.getElementById('rank-content');
+  content.innerHTML = '<p class="rank-empty">加载中...</p>';
+  rankPanel.classList.add('show');
+  const list = await fetchRank();
   if(!list.length){
     content.innerHTML = '<p class="rank-empty">暂无通关记录，快来挑战吧</p>';
   } else {
@@ -189,7 +205,6 @@ function showRankPanel(){
     html += '</table>';
     content.innerHTML = html;
   }
-  rankPanel.classList.add('show');
 }
 function closeRankPanel(){
   rankPanel.classList.remove('show');
