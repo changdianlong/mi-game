@@ -153,42 +153,39 @@ function onStartGame(){
   startGame();
 }
 
-// ========== 云端排行榜 (jsonblob.com) ==========
-const BLOB_ID = '019d1a9b-4072-716c-9057-160e1edb4a3e';
-const BLOB_URL = `https://jsonblob.com/api/jsonBlob/${BLOB_ID}`;
+// ========== 排行榜 API ==========
+// 自动检测：本地服务器可用时用 API，否则用 localStorage
+const API_BASE = location.port ? location.origin : '';
+let useLocalStorage = !location.port; // GitHub Pages 没有端口号，用 localStorage 兜底
 
 async function fetchRank(){
-  try{
-    const r = await fetch(BLOB_URL, {cache:'no-store'});
-    if(r.ok){
-      const data = await r.json();
-      return Array.isArray(data) ? data : [];
-    }
-  }catch(e){ console.warn('排行榜加载失败',e); }
-  return [];
-}
-async function saveRankToCloud(list){
-  for(let retry=0; retry<3; retry++){
+  if(!useLocalStorage){
     try{
-      const r = await fetch(BLOB_URL, {
-        method:'PUT',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(list)
-      });
-      if(r.ok) return true;
-    }catch(e){ console.warn(`排行榜保存重试 ${retry+1}`,e); }
-    await new Promise(ok=>setTimeout(ok, 500));
+      const r = await fetch(API_BASE + '/api/rank', {cache:'no-store'});
+      if(r.ok){ const d = await r.json(); return Array.isArray(d) ? d : []; }
+    }catch(e){ console.warn('API不可用，切换到本地存储',e); useLocalStorage=true; }
   }
-  return false;
+  try{ return JSON.parse(localStorage.getItem('mi_game_rank')) || []; }
+  catch{ return []; }
 }
 async function addRankEntry(name, seconds){
-  // 先从云端拿最新数据，避免覆盖别人的记录
-  const list = await fetchRank();
-  list.push({ name, seconds, date: new Date().toLocaleDateString('zh-CN') });
+  if(!useLocalStorage){
+    try{
+      const r = await fetch(API_BASE + '/api/rank', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name, seconds})
+      });
+      if(r.ok) return;
+    }catch(e){ console.warn('API写入失败，存本地',e); useLocalStorage=true; }
+  }
+  // localStorage 兜底
+  const list = [];
+  try{ list.push(...JSON.parse(localStorage.getItem('mi_game_rank'))||[]); }catch{}
+  list.push({name, seconds, date: new Date().toLocaleDateString('zh-CN')});
   list.sort((a,b) => a.seconds - b.seconds);
   if(list.length > 50) list.length = 50;
-  const ok = await saveRankToCloud(list);
-  if(!ok) console.warn('排行榜保存失败，数据可能丢失');
+  localStorage.setItem('mi_game_rank', JSON.stringify(list));
 }
 function fmtTime(s){
   const m = Math.floor(s/60), sec = s%60;
