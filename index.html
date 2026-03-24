@@ -161,8 +161,10 @@ const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
 
 async function fetchRank(){
   try{
-    // 用 API 读取避免 CDN 缓存
-    const r = await fetch(GIST_API, {cache:'no-store'});
+    const r = await fetch(GIST_API, {
+      cache:'no-store',
+      headers: {'Authorization': 'token ' + _t}
+    });
     if(r.ok){
       const gist = await r.json();
       const content = gist.files['rank.json'].content;
