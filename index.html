@@ -161,8 +161,14 @@ const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
 
 async function fetchRank(){
   try{
-    const r = await fetch(GIST_RAW + '?t=' + Date.now());
-    if(r.ok){ const d = await r.json(); return Array.isArray(d) ? d : []; }
+    // 用 API 读取避免 CDN 缓存
+    const r = await fetch(GIST_API, {cache:'no-store'});
+    if(r.ok){
+      const gist = await r.json();
+      const content = gist.files['rank.json'].content;
+      const d = JSON.parse(content);
+      return Array.isArray(d) ? d : [];
+    }
   }catch(e){ console.warn('排行榜加载失败',e); }
   return [];
 }
