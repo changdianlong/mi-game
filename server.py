@@ -6,7 +6,7 @@
 """
 import json, os, http.server, urllib.parse
 
-PORT = 8080
+PORT = int(os.environ.get("PORT", 8080))
 RANK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rank.json")
 
 def load_rank():
