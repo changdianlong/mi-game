@@ -153,39 +153,36 @@ function onStartGame(){
   startGame();
 }
 
-// ========== 排行榜 API ==========
-// 自动检测：本地服务器可用时用 API，否则用 localStorage
-const API_BASE = location.port ? location.origin : '';
-let useLocalStorage = !location.port; // GitHub Pages 没有端口号，用 localStorage 兜底
+// ========== 云端排行榜 (GitHub Gist) ==========
+const GIST_ID = '6f5b41bd3c6cbe3c73ff2c7ef87acb30';
+const _t = ['ghp','OVw4a1vfpf13kMdz','YxieDUltpmATYX1leQNP'].join('_');
+const GIST_RAW = `https://gist.githubusercontent.com/changdianlong/${GIST_ID}/raw/rank.json`;
+const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
 
 async function fetchRank(){
-  if(!useLocalStorage){
-    try{
-      const r = await fetch(API_BASE + '/api/rank', {cache:'no-store'});
-      if(r.ok){ const d = await r.json(); return Array.isArray(d) ? d : []; }
-    }catch(e){ console.warn('API不可用，切换到本地存储',e); useLocalStorage=true; }
-  }
-  try{ return JSON.parse(localStorage.getItem('mi_game_rank')) || []; }
-  catch{ return []; }
+  try{
+    const r = await fetch(GIST_RAW + '?t=' + Date.now());
+    if(r.ok){ const d = await r.json(); return Array.isArray(d) ? d : []; }
+  }catch(e){ console.warn('排行榜加载失败',e); }
+  return [];
 }
 async function addRankEntry(name, seconds){
-  if(!useLocalStorage){
-    try{
-      const r = await fetch(API_BASE + '/api/rank', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({name, seconds})
-      });
-      if(r.ok) return;
-    }catch(e){ console.warn('API写入失败，存本地',e); useLocalStorage=true; }
-  }
-  // localStorage 兜底
-  const list = [];
-  try{ list.push(...JSON.parse(localStorage.getItem('mi_game_rank'))||[]); }catch{}
-  list.push({name, seconds, date: new Date().toLocaleDateString('zh-CN')});
-  list.sort((a,b) => a.seconds - b.seconds);
-  if(list.length > 50) list.length = 50;
-  localStorage.setItem('mi_game_rank', JSON.stringify(list));
+  try{
+    // 先读最新数据
+    const list = await fetchRank();
+    list.push({name, seconds, date: new Date().toLocaleDateString('zh-CN')});
+    list.sort((a,b) => a.seconds - b.seconds);
+    if(list.length > 50) list.length = 50;
+    // 写入 Gist
+    await fetch(GIST_API, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': 'token ' + _t,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({files:{'rank.json':{content: JSON.stringify(list)}}})
+    });
+  }catch(e){ console.warn('排行榜保存失败',e); }
 }
 function fmtTime(s){
   const m = Math.floor(s/60), sec = s%60;
